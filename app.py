@@ -53,30 +53,32 @@ selected_institutes = st.sidebar.multiselect(
     options=list(institute_2021.keys()),
     default=list(institute_2021.keys())
 )
+alpha = st.sidebar.slider("Bias Scaling Factor (α)", min_value=0.0, max_value=2.0, value=1.0, step=0.1)
+st.sidebar.write("Adjusted 2025 prediction = 2025 prediction - α * (2021 prediction - Actual 2021)")
 
 # Initialize dictionaries to store sums and counts
 party_sums = {party: 0 for party in ergebnis}
 party_counts = {party: 0 for party in ergebnis}
 
+bias_data = {party: [] for party in ergebnis}
+adjusted_predictions_data = {party: [] for party in ergebnis}
 adjusted_2025 = {}
 
-# Adjust predictions
-for institute_name, predictions_2021 in institute_2021.items():
-    if institute_name in selected_institutes and institute_name in institute_2025:
-        adjusted_2025[institute_name] = {}
-        for party, predicted_2021 in predictions_2021.items():
-            if party in ergebnis and party in institute_2025[institute_name]:
-                # Compute difference from 2021
-                difference_2021 = predicted_2021 - ergebnis[party]
+# Process each institute's predictions
+for inst, pred_2021 in institute_2021.items():
+    if inst in selected_institutes and inst in institute_2025:
+        adjusted_2025[inst] = {}
+        for party, p2021 in pred_2021.items():
+            if party in ergebnis and party in institute_2025[inst]:
+                bias = p2021 - ergebnis[party]
+                bias_data[party].append(bias)
 
-                # Adjust 2025 prediction
-                adjusted_prediction = institute_2025[institute_name][party] - difference_2021
+                adjusted_pred = institute_2025[inst][party] - alpha * bias
+                adjusted_pred = round(adjusted_pred, 1)
+                adjusted_2025[inst][party] = adjusted_pred
 
-                # Store adjusted value
-                adjusted_2025[institute_name][party] = round(adjusted_prediction, 1)
-
-                # Sum up for average calculation
-                party_sums[party] += adjusted_2025[institute_name][party]
+                adjusted_predictions_data[party].append(adjusted_pred)
+                party_sums[party] += adjusted_pred
                 party_counts[party] += 1
 
 # Compute average for each party
@@ -93,7 +95,7 @@ std_devs = []
 
 # Calculate mean and standard deviation for error bars
 for party in party_labels:
-    values = [adjusted_2025[institute][party] for institute in adjusted_2025 if party in adjusted_2025[institute]]
+    values = adjusted_predictions_data[party]
     means.append(np.mean(values))
     std_devs.append(np.std(values))
 
